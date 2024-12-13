@@ -325,21 +325,26 @@ class LibSerialPort {
     ffi.Pointer<sp_port> port,
     ffi.Pointer<ffi.Int> usb_vid,
     ffi.Pointer<ffi.Int> usb_pid,
+    ffi.Pointer<ffi.Int> usb_interface_number,
   ) {
     return _sp_get_port_usb_vid_pid(
       port,
       usb_vid,
       usb_pid,
+      usb_interface_number,
     );
   }
 
   late final _sp_get_port_usb_vid_pidPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Pointer<ffi.Int>,
+          ffi.Int32 Function(
+              ffi.Pointer<sp_port>,
+              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int>,
               ffi.Pointer<ffi.Int>)>>('sp_get_port_usb_vid_pid');
   late final _sp_get_port_usb_vid_pid = _sp_get_port_usb_vid_pidPtr.asFunction<
-      int Function(
-          ffi.Pointer<sp_port>, ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Int>)>();
+      int Function(ffi.Pointer<sp_port>, ffi.Pointer<ffi.Int>,
+          ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Int>)>();
 
   /// Get the USB manufacturer string of a USB serial adapter port.
   ///
@@ -622,9 +627,9 @@ class LibSerialPort {
   }
 
   late final _sp_set_baudratePtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(
-              ffi.Pointer<sp_port>, ffi.Int)>>('sp_set_baudrate');
+          ffi
+          .NativeFunction<ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Int)>>(
+      'sp_set_baudrate');
   late final _sp_set_baudrate =
       _sp_set_baudratePtr.asFunction<int Function(ffi.Pointer<sp_port>, int)>();
 
@@ -777,9 +782,9 @@ class LibSerialPort {
   }
 
   late final _sp_set_parityPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(
-              ffi.Pointer<sp_port>, ffi.Int32)>>('sp_set_parity');
+          ffi
+          .NativeFunction<ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Int32)>>(
+      'sp_set_parity');
   late final _sp_set_parity =
       _sp_set_parityPtr.asFunction<int Function(ffi.Pointer<sp_port>, int)>();
 
@@ -855,9 +860,9 @@ class LibSerialPort {
   }
 
   late final _sp_set_stopbitsPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(
-              ffi.Pointer<sp_port>, ffi.Int)>>('sp_set_stopbits');
+          ffi
+          .NativeFunction<ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Int)>>(
+      'sp_set_stopbits');
   late final _sp_set_stopbits =
       _sp_set_stopbitsPtr.asFunction<int Function(ffi.Pointer<sp_port>, int)>();
 
@@ -1241,9 +1246,9 @@ class LibSerialPort {
   }
 
   late final _sp_set_xon_xoffPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(
-              ffi.Pointer<sp_port>, ffi.Int32)>>('sp_set_xon_xoff');
+          ffi
+          .NativeFunction<ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Int32)>>(
+      'sp_set_xon_xoff');
   late final _sp_set_xon_xoff =
       _sp_set_xon_xoffPtr.asFunction<int Function(ffi.Pointer<sp_port>, int)>();
 
@@ -1354,9 +1359,9 @@ class LibSerialPort {
   }
 
   late final _sp_set_flowcontrolPtr = _lookup<
-      ffi.NativeFunction<
-          ffi.Int32 Function(
-              ffi.Pointer<sp_port>, ffi.Int32)>>('sp_set_flowcontrol');
+          ffi
+          .NativeFunction<ffi.Int32 Function(ffi.Pointer<sp_port>, ffi.Int32)>>(
+      'sp_set_flowcontrol');
   late final _sp_set_flowcontrol = _sp_set_flowcontrolPtr
       .asFunction<int Function(ffi.Pointer<sp_port>, int)>();
 

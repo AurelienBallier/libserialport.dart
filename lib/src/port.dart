@@ -135,6 +135,9 @@ abstract class SerialPort {
   /// Gets the USB Product ID of a USB serial adapter port.
   int? get productId;
 
+  /// Gets the USB interface number.
+  int? get interfaceNumber;
+
   /// Get the USB manufacturer of a USB serial adapter port.
   String? get manufacturer;
 
@@ -296,14 +299,21 @@ class _SerialPortImpl implements SerialPort {
   @override
   int? get vendorId {
     return Util.getInt((ptr) {
-      return dylib.sp_get_port_usb_vid_pid(_port, ptr, ffi.nullptr);
+      return dylib.sp_get_port_usb_vid_pid(_port, ptr, ffi.nullptr, ffi.nullptr);
     });
   }
 
   @override
   int? get productId {
     return Util.getInt((ptr) {
-      return dylib.sp_get_port_usb_vid_pid(_port, ffi.nullptr, ptr);
+      return dylib.sp_get_port_usb_vid_pid(_port, ffi.nullptr, ptr, ffi.nullptr);
+    });
+  }
+
+  @override
+  int? get interfaceNumber {
+    return Util.getInt((ptr) {
+      return dylib.sp_get_port_usb_vid_pid(_port, ffi.nullptr, ffi.nullptr, ptr);
     });
   }
 

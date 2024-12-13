@@ -6,7 +6,7 @@ preamble: |
   // ignore_for_file: type=lint
 headers:
   entry-points:
-    - '/usr/include/libserialport.h'
+    - 'third_party/libserialport.h'
 structs:
   include:
     - 'sp_.*'
