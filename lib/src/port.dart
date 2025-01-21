@@ -24,8 +24,10 @@
 
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
+import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart' as ffi;
+import 'package:libserialport/src/android.dart';
 import 'package:libserialport/src/bindings.dart';
 import 'package:libserialport/src/config.dart';
 import 'package:libserialport/src/dylib.dart';
@@ -69,17 +71,34 @@ abstract class SerialPort {
   ///
   /// **Note:** Call [dispose()] to release the resources after you're done
   ///           with the serial port.
-  factory SerialPort(String name) => _SerialPortImpl(name);
+  factory SerialPort(String name) {
+    if (Platform.isAndroid) {
+      return SerialPortAndroid(name);
+    } else {
+      return SerialPortDesktop(name);
+    }
+  }
 
   /// @internal
-  factory SerialPort.fromAddress(int address) =>
-      _SerialPortImpl.fromAddress(address);
+  factory SerialPort.fromAddress(int address) {
+    if (Platform.isAndroid) {
+      return SerialPortAndroid.fromAddress(address);
+    } else {
+      return SerialPortDesktop.fromAddress(address);
+    }
+  }
 
   /// @internal
   int get address;
 
   /// Lists the serial ports available on the system.
-  static List<String> get availablePorts => _SerialPortImpl.availablePorts;
+  static Future<List<String>> get availablePorts {
+    if (Platform.isAndroid) {
+      return SerialPortAndroid.availablePorts;
+    } else {
+      return SerialPortDesktop.availablePorts;
+    }
+  }
 
   /// Releases all resources associated with the serial port.
   ///
@@ -90,19 +109,19 @@ abstract class SerialPort {
   ///
   /// See also:
   /// - [SerialPortMode]
-  bool open({required int mode});
+  Future<bool> open({required int mode});
 
   /// Opens the serial port for reading only.
-  bool openRead();
+  Future<bool> openRead();
 
   /// Opens the serial port for writing only.
-  bool openWrite();
+  Future<bool> openWrite();
 
   /// Opens the serial port for reading and writing.
-  bool openReadWrite();
+  Future<bool> openReadWrite();
 
   /// Closes the serial port.
-  bool close();
+  Future<bool> close();
 
   /// Gets whether the serial port is open.
   bool get isOpen;
@@ -158,7 +177,7 @@ abstract class SerialPort {
   ///
   /// Upon errors, the configuration of the serial port is unknown since
   /// partial/incomplete config updates may have happened.
-  set config(SerialPortConfig config);
+  Future<void> setConfig(SerialPortConfig config);
 
   /// Read data from the serial port.
   ///
@@ -166,7 +185,7 @@ abstract class SerialPort {
   ///
   /// If `timeout` is 0 or greater, the read operation is blocking.
   /// The timeout is specified in milliseconds. Pass 0 to wait infinitely.
-  Uint8List read(int bytes, {int timeout = -1});
+  Future<Uint8List> read(int bytes, {int timeout = -1});
 
   /// Write data to the serial port.
   ///
@@ -174,7 +193,7 @@ abstract class SerialPort {
   /// The timeout is specified in milliseconds. Pass 0 to wait infinitely.
   ///
   /// Returns the amount of bytes written.
-  int write(Uint8List bytes, {int timeout = -1});
+  Future<int> write(Uint8List bytes, {int timeout = -1});
 
   /// Gets the amount of bytes available for reading.
   int get bytesAvailable;
@@ -201,15 +220,21 @@ abstract class SerialPort {
   bool endBreak();
 
   /// Gets the error for a failed operation.
-  static SerialPortError? get lastError => _SerialPortImpl.lastError;
+  static SerialPortError? get lastError {
+    if (Platform.isAndroid) {
+      return SerialPortAndroid.lastError;
+    } else {
+      return SerialPortDesktop.lastError;
+    }
+  }
 }
 
-class _SerialPortImpl implements SerialPort {
+class SerialPortDesktop implements SerialPort {
   final ffi.Pointer<sp_port> _port;
   SerialPortConfig? _config;
 
-  _SerialPortImpl(String name) : _port = _init(name);
-  _SerialPortImpl.fromAddress(int address)
+  SerialPortDesktop(String name) : _port = _init(name);
+  SerialPortDesktop.fromAddress(int address)
       : _port = ffi.Pointer<sp_port>.fromAddress(address);
 
   @override
@@ -225,7 +250,7 @@ class _SerialPortImpl implements SerialPort {
     return port;
   }
 
-  static List<String> get availablePorts {
+  static Future<List<String>> get availablePorts async {
     final out = ffi.calloc<ffi.Pointer<ffi.Pointer<sp_port>>>();
     final rv = Util.call(() => dylib.sp_list_ports(out));
     if (rv != sp_return.SP_OK) {
@@ -250,16 +275,16 @@ class _SerialPortImpl implements SerialPort {
   }
 
   @override
-  bool open({required int mode}) =>
+  Future<bool> open({required int mode}) async =>
       dylib.sp_open(_port, mode) == sp_return.SP_OK;
   @override
-  bool openRead() => open(mode: SerialPortMode.read);
+  Future<bool> openRead() async => open(mode: SerialPortMode.read);
   @override
-  bool openWrite() => open(mode: SerialPortMode.write);
+  Future<bool> openWrite() async => open(mode: SerialPortMode.write);
   @override
-  bool openReadWrite() => open(mode: SerialPortMode.readWrite);
+  Future<bool> openReadWrite() async => open(mode: SerialPortMode.readWrite);
   @override
-  bool close() => dylib.sp_close(_port) == sp_return.SP_OK;
+  Future<bool> close() async => dylib.sp_close(_port) == sp_return.SP_OK;
 
   @override
   bool get isOpen {
@@ -338,7 +363,7 @@ class _SerialPortImpl implements SerialPort {
   }
 
   @override
-  set config(SerialPortConfig config) {
+  Future<void> setConfig(SerialPortConfig config) async {
     if (_config != config) {
       _config?.dispose();
     }
@@ -348,7 +373,7 @@ class _SerialPortImpl implements SerialPort {
   }
 
   @override
-  Uint8List read(int bytes, {int timeout = -1}) {
+  Future<Uint8List> read(int bytes, {int timeout = -1}) async {
     return Util.read(bytes, (ffi.Pointer<ffi.Uint8> ptr) {
       return timeout < 0
           ? dylib.sp_nonblocking_read(_port, ptr.cast(), bytes)
@@ -357,7 +382,7 @@ class _SerialPortImpl implements SerialPort {
   }
 
   @override
-  int write(Uint8List bytes, {int timeout = -1}) {
+  Future<int> write(Uint8List bytes, {int timeout = -1}) async {
     return Util.write(bytes, (ffi.Pointer<ffi.Uint8> ptr) {
       return timeout < 0
           ? dylib.sp_nonblocking_write(_port, ptr.cast(), bytes.length)
@@ -403,7 +428,7 @@ class _SerialPortImpl implements SerialPort {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is _SerialPortImpl && _port == other._port;
+    return other is SerialPortDesktop && _port == other._port;
   }
 
   @override

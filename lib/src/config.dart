@@ -23,11 +23,13 @@
  */
 
 import 'dart:ffi' as ffi;
+import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart' as ffi;
 import 'package:libserialport/src/bindings.dart';
 import 'package:libserialport/src/dylib.dart';
 import 'package:libserialport/src/util.dart';
+import 'package:libserialport/src/android.dart';
 
 /// Serial port config.
 ///
@@ -70,11 +72,22 @@ abstract class SerialPortConfig {
   ///
   /// @note Call [dispose()] to release the resources after you're done with
   ///       the serial port config.
-  factory SerialPortConfig() => _SerialPortConfigImpl();
+  factory SerialPortConfig() {
+    if (Platform.isAndroid) {
+      return SerialPortConfigAndroid();
+    } else {
+      return SerialPortConfigDesktop();
+    }
+  }
 
   /// @internal
-  factory SerialPortConfig.fromAddress(int address) =>
-      _SerialPortConfigImpl.fromAddress(address);
+  factory SerialPortConfig.fromAddress(int address) {
+    if (Platform.isAndroid) {
+      return SerialPortConfigAndroid.fromAddress(address);
+    } else {
+      return SerialPortConfigDesktop.fromAddress(address);
+    }
+  }
 
   /// @internal
   int get address;
@@ -178,6 +191,8 @@ abstract class SerialPortConfig {
   /// See also:
   /// - [SerialPortFlowControl]
   void setFlowControl(int value);
+
+  int get flowControl;
 }
 
 // ignore_for_file: avoid_private_typedef_functions
@@ -190,11 +205,11 @@ typedef _SerialPortConfigGet32 = int Function(
 typedef _SerialPortConfigSet = int Function(
     ffi.Pointer<sp_port_config> config, int value);
 
-class _SerialPortConfigImpl implements SerialPortConfig {
+class SerialPortConfigDesktop implements SerialPortConfig {
   final ffi.Pointer<sp_port_config> _config;
 
-  _SerialPortConfigImpl() : _config = _init();
-  _SerialPortConfigImpl.fromAddress(int address)
+  SerialPortConfigDesktop() : _config = _init();
+  SerialPortConfigDesktop.fromAddress(int address)
       : _config = ffi.Pointer<sp_port_config>.fromAddress(address);
 
   @override
@@ -279,7 +294,7 @@ class _SerialPortConfigImpl implements SerialPortConfig {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is _SerialPortConfigImpl && _config == other._config;
+    return other is SerialPortConfigDesktop && _config == other._config;
   }
 
   @override
@@ -287,4 +302,6 @@ class _SerialPortConfigImpl implements SerialPortConfig {
 
   @override
   String toString() => 'SerialPortConfig($_config)';
+
+  int get flowControl => 0;
 }
