@@ -35,6 +35,7 @@ import 'package:libserialport/src/dylib.dart';
 import 'package:libserialport/src/error.dart';
 import 'package:libserialport/src/port.dart';
 import 'package:libserialport/src/util.dart';
+import 'package:usb_serial/usb_serial.dart';
 
 const int _kReadEvents = sp_event.SP_EVENT_RX_READY | sp_event.SP_EVENT_ERROR;
 
@@ -189,6 +190,7 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
   final int _timeout;
   StreamController<Uint8List>? __controller;
   StreamSubscription<Uint8List>? _receiver;
+  StreamSubscription<UsbEvent>? _usbEvents;
 
   @override
   SerialPortAndroid get port => _port;
@@ -213,6 +215,8 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
   void close() {
     _receiver?.cancel();
     _receiver = null;
+    _usbEvents?.cancel();
+    _usbEvents = null;
     __controller?.close();
     __controller = null;
   }
@@ -232,10 +236,22 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
     }, onError: (e) {
       _controller.addError(SerialPortError(e.toString()));
     });
+
+    _usbEvents = UsbSerial.usbEventStream?.listen((usbEvent) {
+      if (usbEvent.device == null) return;
+
+      if (usbEvent.device!.port != port.port) return;
+
+      if (usbEvent.event == UsbEvent.ACTION_USB_DETACHED) {
+        _controller.addError(SerialPortError('Device disconnected'));
+      }
+    });
   }
 
   void _cancelRead() {
     _receiver?.cancel();
     _receiver = null;
+    _usbEvents?.cancel();
+    _usbEvents = null;
   }
 }
