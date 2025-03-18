@@ -23,38 +23,40 @@ class SerialPortAndroid implements SerialPort {
 
     int idx = int.parse(splittedIdx[0]);
 
-    if(splittedIdx.length == 2) {
+    if (splittedIdx.length == 2) {
       interfaceNumber = int.parse(splittedIdx[1]);
     }
 
-    if((idx < _currentDevices.length) && (idx >= 0)) {
+    if ((idx < _currentDevices.length) && (idx >= 0)) {
       _device = _currentDevices[idx];
     }
   }
 
   SerialPortAndroid.fromAddress(int address) {
-    //Not implemented
+    for (UsbDevice device in _currentDevices) {
+      if (address == device.deviceId) _device = device;
+    }
   }
 
   @override
-  int get address => (_device != null)?_device!.deviceId!:0;
+  int get address => (_device != null) ? _device!.deviceId! : 0;
 
   /// Lists the serial ports available on the system.
   static Future<List<String>> get availablePorts async {
     _currentDevices = await UsbSerial.listDevices();
     List<String> devices = [];
 
-    for(var i=0; i < _currentDevices.length; i++) {
+    for (var i = 0; i < _currentDevices.length; i++) {
       int? intCount = _currentDevices[i].interfaceCount;
 
       //usb_serial doesn't seem to list different serial port from a single usb device, this is a work around.
-      if((intCount != null) && (intCount! > 1)) {
-        for(var j=0; j < intCount!; j++) {
+      if ((intCount != null) && (intCount! > 1)) {
+        for (var j = 0; j < intCount!; j++) {
           //Add the device number to the list.
-          devices.add(i.toString() +"+"+ j.toString());
+          devices.add(i.toString() + "+" + j.toString());
         }
       } else {
-        devices.add(i.toString() +"+-1");
+        devices.add(i.toString() + "+-1");
       }
     }
 
@@ -75,7 +77,7 @@ class SerialPortAndroid implements SerialPort {
   Future<bool> open({required int mode}) async {
     UsbPort? p = await _device.create("", interfaceNumber);
 
-    if(p == null) {
+    if (p == null) {
       return false;
     }
 
@@ -90,7 +92,7 @@ class SerialPortAndroid implements SerialPort {
     dataAvailable = Uint8List(0);
 
     //Start listening for data
-    if(port!.inputStream != null) {
+    if (port!.inputStream != null) {
       _reading = port!.inputStream!.listen((Uint8List data) {
         var b = BytesBuilder();
         b.add(dataAvailable);
@@ -101,22 +103,22 @@ class SerialPortAndroid implements SerialPort {
   }
 
   /// Opens the serial port for reading only.
-  Future<bool> openRead() => open(mode:0);
+  Future<bool> openRead() => open(mode: 0);
 
   /// Opens the serial port for writing only.
-  Future<bool> openWrite() => open(mode:0);
+  Future<bool> openWrite() => open(mode: 0);
 
   /// Opens the serial port for reading and writing.
-  Future<bool> openReadWrite() => open(mode:0);
+  Future<bool> openReadWrite() => open(mode: 0);
 
   /// Closes the serial port.
   Future<bool> close() async {
-    if(_reading != null) {
+    if (_reading != null) {
       _reading!.cancel();
       _reading = null;
     }
 
-    if(isOpen && (port != null)) {
+    if (isOpen && (port != null)) {
       bool result = await port!.close();
       _portOpened = !result;
       return result;
@@ -209,26 +211,26 @@ class SerialPortAndroid implements SerialPort {
   /// If `timeout` is 0 or greater, the read operation is blocking.
   /// The timeout is specified in milliseconds. Pass 0 to wait infinitely.
   Future<Uint8List> read(int bytes, {int timeout = -1}) async {
-    if(_reading == null) {
+    if (_reading == null) {
       _startReading();
     }
 
-    if(dataAvailable.length >= bytes) {
+    if (dataAvailable.length >= bytes) {
       Uint8List subData = dataAvailable.sublist(0, bytes);
       dataAvailable = dataAvailable.sublist(bytes, dataAvailable.length);
       return subData;
-    } else if(timeout != -1) {
+    } else if (timeout != -1) {
       int elapsedTime = 0;
       do {
         await Future.delayed(const Duration(milliseconds: 1));
         elapsedTime++;
 
-        if(dataAvailable.length >= bytes) {
+        if (dataAvailable.length >= bytes) {
           Uint8List subData = dataAvailable.sublist(0, bytes);
           dataAvailable = dataAvailable.sublist(bytes, dataAvailable.length);
           return subData;
         }
-      } while(elapsedTime < timeout);
+      } while (elapsedTime < timeout);
     }
 
     return Uint8List(0);
@@ -241,7 +243,7 @@ class SerialPortAndroid implements SerialPort {
   ///
   /// Returns the amount of bytes written.
   Future<int> write(Uint8List bytes, {int timeout = -1}) async {
-    if(port != null) {
+    if (port != null) {
       await port!.write(bytes);
       return bytes.length;
     }
@@ -290,7 +292,7 @@ class SerialPortAndroid implements SerialPort {
 
 /// Serial port config for Android.
 class SerialPortConfigAndroid implements SerialPortConfig {
-  SerialPortConfigAndroid(){}
+  SerialPortConfigAndroid() {}
 
   /// @internal
   factory SerialPortConfigAndroid.fromAddress(int address) {
@@ -305,7 +307,7 @@ class SerialPortConfigAndroid implements SerialPortConfig {
   /// Releases all resources associated with the serial port config.
   ///
   /// @note Call this function after you're done with the serial port config.
-  void dispose(){}
+  void dispose() {}
 
   /// Gets the baud rate from the port configuration.
   int baudRate = 0;
@@ -319,7 +321,7 @@ class SerialPortConfigAndroid implements SerialPortConfig {
 
   /// Sets the parity setting in the port configuration.
   set parity(int value) {
-    switch(value) {
+    switch (value) {
       case SerialPortParity.invalid:
         _parity = -1;
         break;
@@ -386,7 +388,7 @@ class SerialPortConfigAndroid implements SerialPortConfig {
   int _flowControl = 0;
 
   void setFlowControl(int value) {
-    switch(value) {
+    switch (value) {
       case SerialPortFlowControl.none:
         _flowControl = UsbPort.FLOW_CONTROL_OFF;
         break;
