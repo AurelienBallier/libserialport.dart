@@ -187,7 +187,7 @@ class _SerialPortReaderDesktopImpl implements SerialPortReader {
 
 class _SerialPortReaderAndroidImpl implements SerialPortReader {
   final SerialPortAndroid _port;
-  final int _timeout;
+  final int? _timeout;
   StreamController<Uint8List>? __controller;
   StreamSubscription<Uint8List>? _receiver;
   StreamSubscription<UsbEvent>? _usbEvents;
@@ -200,7 +200,7 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
 
   _SerialPortReaderAndroidImpl(SerialPort port, {int? timeout})
       : _port = port as SerialPortAndroid,
-        _timeout = timeout ?? 500;
+        _timeout = timeout;
 
   StreamController<Uint8List> get _controller {
     return __controller ??= StreamController<Uint8List>(
@@ -222,12 +222,18 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
   }
 
   void _startRead() {
-    _receiver = port.port!.inputStream!.timeout(
-      Duration(milliseconds: _timeout),
-      onTimeout: (sink) {
-        sink.addError(SerialPortError('Timeout'));
-      },
-    ).listen((data) {
+    // If no timeout is set, the default 500ms that _SerialPortReaderDesktopImpl uses make stream end earlier, not maintaining the same behavior
+    // Stream will have timeout only if timeout is set
+    Stream<Uint8List> _stream = _timeout == null
+        ? _port.port!.inputStream!
+        : _port.port!.inputStream!.timeout(
+            Duration(milliseconds: _timeout!),
+            onTimeout: (sink) {
+              sink.addError(SerialPortError('Timeout'));
+            },
+          );
+
+    _receiver = _stream!.listen((data) {
       if (data is SerialPortError) {
         _controller.addError(data);
       } else {
