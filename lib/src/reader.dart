@@ -246,7 +246,7 @@ class _SerialPortReaderAndroidImpl implements SerialPortReader {
     _usbEvents = UsbSerial.usbEventStream?.listen((usbEvent) {
       if (usbEvent.device == null) return;
 
-      if (usbEvent.device!.port != port.port) return;
+      if (usbEvent.device!.deviceId != port.address) return;
 
       if (usbEvent.event == UsbEvent.ACTION_USB_DETACHED) {
         _controller.addError(SerialPortError('Device disconnected'));
