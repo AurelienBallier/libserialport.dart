@@ -84,10 +84,16 @@ class SerialPortAndroid implements SerialPort {
     port = p!;
 
     _portOpened = await port!.open();
+
+    //If port is open, start reading, to start filling the buffer, so the user can check if there is already data available
+    if(_portOpened) _startReading();
+
     return _portOpened;
   }
 
   void _startReading() {
+    if (_reading != null) return;
+
     //Clear data
     dataAvailable = Uint8List(0);
 
@@ -211,9 +217,7 @@ class SerialPortAndroid implements SerialPort {
   /// If `timeout` is 0 or greater, the read operation is blocking.
   /// The timeout is specified in milliseconds. Pass 0 to wait infinitely.
   Future<Uint8List> read(int bytes, {int timeout = -1}) async {
-    if (_reading == null) {
-      _startReading();
-    }
+    _startReading();
 
     if (dataAvailable.length >= bytes) {
       Uint8List subData = dataAvailable.sublist(0, bytes);
