@@ -24,15 +24,18 @@
 
 import 'dart:async';
 import 'dart:ffi' as ffi;
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart' as ffi;
+import 'package:libserialport/src/android.dart';
 import 'package:libserialport/src/bindings.dart';
 import 'package:libserialport/src/dylib.dart';
 import 'package:libserialport/src/error.dart';
 import 'package:libserialport/src/port.dart';
 import 'package:libserialport/src/util.dart';
+import 'package:usb_serial/usb_serial.dart';
 
 const int _kReadEvents = sp_event.SP_EVENT_RX_READY | sp_event.SP_EVENT_ERROR;
 
@@ -51,8 +54,13 @@ abstract class SerialPortReader {
   /// provided to specify a time im milliseconds between attempts to read after
   /// a failure to open the [port] for reading. If not given, [timeout] defaults
   /// to 500ms.
-  factory SerialPortReader(SerialPort port, {int? timeout}) =>
-      _SerialPortReaderImpl(port, timeout: timeout);
+  factory SerialPortReader(SerialPort port, {int? timeout}) {
+    if (Platform.isAndroid) {
+      return _SerialPortReaderAndroidImpl(port, timeout: timeout);
+    }
+
+    return _SerialPortReaderDesktopImpl(port, timeout: timeout);
+  }
 
   /// Gets the port the reader operates on.
   SerialPort get port;
@@ -75,14 +83,14 @@ class _SerialPortReaderArgs {
   });
 }
 
-class _SerialPortReaderImpl implements SerialPortReader {
+class _SerialPortReaderDesktopImpl implements SerialPortReader {
   final SerialPort _port;
   final int _timeout;
   Isolate? _isolate;
   ReceivePort? _receiver;
   StreamController<Uint8List>? __controller;
 
-  _SerialPortReaderImpl(SerialPort port, {int? timeout})
+  _SerialPortReaderDesktopImpl(SerialPort port, {int? timeout})
       : _port = port,
         _timeout = timeout ?? 500;
 
@@ -174,5 +182,82 @@ class _SerialPortReaderImpl implements SerialPortReader {
 
   static void _releaseEvents(ffi.Pointer<ffi.Pointer<sp_event_set>> events) {
     dylib.sp_free_event_set(events.value);
+  }
+}
+
+class _SerialPortReaderAndroidImpl implements SerialPortReader {
+  final SerialPortAndroid _port;
+  final int? _timeout;
+  StreamController<Uint8List>? __controller;
+  StreamSubscription<Uint8List>? _receiver;
+  StreamSubscription<UsbEvent>? _usbEvents;
+
+  @override
+  SerialPortAndroid get port => _port;
+
+  @override
+  Stream<Uint8List> get stream => _controller.stream;
+
+  _SerialPortReaderAndroidImpl(SerialPort port, {int? timeout})
+      : _port = port as SerialPortAndroid,
+        _timeout = timeout;
+
+  StreamController<Uint8List> get _controller {
+    return __controller ??= StreamController<Uint8List>(
+      onListen: _startRead,
+      onCancel: _cancelRead,
+      onPause: _cancelRead,
+      onResume: _startRead,
+    );
+  }
+
+  @override
+  void close() {
+    _receiver?.cancel();
+    _receiver = null;
+    _usbEvents?.cancel();
+    _usbEvents = null;
+    __controller?.close();
+    __controller = null;
+  }
+
+  void _startRead() {
+    // If no timeout is set, the default 500ms that _SerialPortReaderDesktopImpl uses make stream end earlier, not maintaining the same behavior
+    // Stream will have timeout only if timeout is set
+    Stream<Uint8List> _stream = _timeout == null
+        ? _port.port!.inputStream!
+        : _port.port!.inputStream!.timeout(
+            Duration(milliseconds: _timeout!),
+            onTimeout: (sink) {
+              sink.addError(SerialPortError('Timeout'));
+            },
+          );
+
+    _receiver = _stream!.listen((data) {
+      if (data is SerialPortError) {
+        _controller.addError(data);
+      } else {
+        _controller.add(data);
+      }
+    }, onError: (e) {
+      _controller.addError(SerialPortError(e.toString()));
+    });
+
+    _usbEvents = UsbSerial.usbEventStream?.listen((usbEvent) {
+      if (usbEvent.device == null) return;
+
+      if (usbEvent.device!.deviceId != port.address) return;
+
+      if (usbEvent.event == UsbEvent.ACTION_USB_DETACHED) {
+        _controller.addError(SerialPortError('Device disconnected'));
+      }
+    });
+  }
+
+  void _cancelRead() {
+    _receiver?.cancel();
+    _receiver = null;
+    _usbEvents?.cancel();
+    _usbEvents = null;
   }
 }

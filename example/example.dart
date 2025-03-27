@@ -2,10 +2,10 @@ import 'package:libserialport/libserialport.dart';
 
 // ignore_for_file: avoid_print
 
-void main() {
+void main() async {
   print('Available ports:');
   var i = 0;
-  for (final name in SerialPort.availablePorts) {
+  for (final name in await SerialPort.availablePorts) {
     final sp = SerialPort(name);
     print('${++i}) $name');
     print('\tDescription: ${sp.description}');
